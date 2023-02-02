@@ -1,0 +1,101 @@
+---
+title: "Programmer"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(Seurat)
+library(patchwork)
+library(tximeta)
+library(R.utils)
+library(org.Hs.eg.db)
+library(SeuratWrappers)
+library(tximport)
+library(ggplot2)
+```
+
+```{r}
+datobj <- ReadAlevin("/projectnb/bf528/project_4_scrnaseq/GSM2230760__salmon_quant/alevin/quants_mat.gz")
+```
+
+```{r}
+datobj[["percent.mt"]] <- PercentageFeatureSet(datobj, pattern = "^MT-")
+```
+
+```{r}
+head(datobj@meta.data, 5)
+```
+```{r}
+VlnPlot(datobj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+```
+
+```{r}
+plot1 <- FeatureScatter(datobj, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot2 <- FeatureScatter(datobj, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1 + plot2
+```
+
+```{r}
+dataobj <- subset(datobj, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 5)
+```
+
+```{r}
+dataobj <- NormalizeData(dataobj, normalization.method = "LogNormalize", scale.factor = 10000)
+```
+```{r}
+dataobj <- FindVariableFeatures(dataobj, selection.method = "vst", nfeatures = 2000)
+
+# Identify the 10 most highly variable genes
+top10 <- head(VariableFeatures(dataobj), 10)
+
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(dataobj)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+plot1 + plot2
+```
+
+```{r}
+all.genes <- rownames(dataobj)
+dataobj <- ScaleData(dataobj, features = all.genes)
+```
+
+```{r}
+dataobj <- RunPCA(dataobj, features = VariableFeatures(object = dataobj))
+```
+
+```{r}
+DimPlot(dataobj, reduction = "pca")
+```
+```{r}
+ElbowPlot(dataobj)
+```
+
+```{r}
+dataobj <- FindNeighbors(dataobj, dims = 1:10)
+dataobj <- FindClusters(dataobj, resolution = 0.5)
+```
+
+```{r}
+counts <- as.vector(table(Idents(dataobj)))
+cluster <- names(table(Idents(dataobj)))
+```
+
+```{r}
+prop <- as.vector(prop.table(table(Idents(dataobj))))
+cluster <- names(prop.table(table(Idents(dataobj))))
+dataobjpie <- data.frame(prop,cluster)
+```
+
+```{r}
+ggplot(dataobjpie, aes(x="", y=prop, fill=cluster)) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start=0)+
+  ggtitle("Relative proportions of cells in each cluster")
+
+```
+
+
+
+
+
